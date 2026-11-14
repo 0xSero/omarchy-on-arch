@@ -6,4 +6,7 @@ if [[ -n ${OMARCHY_SKIP_QUATTRO:-} ]]; then
   exit 0
 fi
 
-"$OMARCHY_PATH/bin/omarchy-upgrade-to-quattro" --yes --channel stable --user "$USER"
+# Run as root: as a user the upgrader calls `sudo -v`, whose password prompt
+# would be hidden inside the install log. As root it uses the same cached sudo
+# credentials as every other install step.
+sudo "$OMARCHY_PATH/bin/omarchy-upgrade-to-quattro" --yes --channel stable --user "$USER"
