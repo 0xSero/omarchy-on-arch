@@ -27,3 +27,19 @@ sudo visudo -cq -f "$installer_sudoers"
 # Run as root: as a user the upgrader calls `sudo -v` itself, whose password
 # prompt would be hidden inside the install log.
 sudo env OMARCHY_UPGRADE_DEFER_REBOOT=1 "$OMARCHY_PATH/bin/omarchy-upgrade-to-quattro" --yes --channel stable --user "$USER"
+upgrade_status=$?
+
+# omarchy-on-arch: archinstall's "NetworkManager (iwd backend)" option writes
+# wifi.backend=iwd into NetworkManager's config. The upgrade retires iwd, which
+# leaves the Wi-Fi card "unavailable" after reboot. Fall back to NetworkManager's
+# default backend (wpa_supplicant, a hard dependency) whenever iwd is gone.
+if ! pacman -Q iwd &>/dev/null; then
+  for conf in /etc/NetworkManager/conf.d/*.conf /etc/NetworkManager/NetworkManager.conf; do
+    if sudo grep -qE '^[[:space:]]*wifi\.backend[[:space:]]*=[[:space:]]*iwd' "$conf" 2>/dev/null; then
+      sudo sed -i -E '/^[[:space:]]*wifi\.backend[[:space:]]*=[[:space:]]*iwd/d' "$conf"
+      echo "Removed wifi.backend=iwd from $conf"
+    fi
+  done
+fi
+
+exit $upgrade_status
