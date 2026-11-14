@@ -31,6 +31,24 @@ EOF
 
   CMDLINE=$(sudo grep "^[[:space:]]*cmdline:" "$limine_config" | head -1 | sed 's/^[[:space:]]*cmdline:[[:space:]]*//')
 
+  # omarchy-on-arch: on a re-run, an earlier attempt has already replaced the
+  # archinstall config (and its cmdline) with Omarchy's template. Fall back to
+  # the cmdline the running kernel was booted with, which still carries root=.
+  if [[ $CMDLINE != *root=* ]]; then
+    CMDLINE=""
+    for param in $(</proc/cmdline); do
+      case $param in
+        BOOT_IMAGE=* | initrd=*) ;;
+        *) CMDLINE+="${CMDLINE:+ }$param" ;;
+      esac
+    done
+  fi
+
+  if [[ $CMDLINE != *root=* ]]; then
+    echo "Error: could not determine the kernel cmdline (no root= found)" >&2
+    exit 1
+  fi
+
   # Write /etc/default/limine *before* installing limine-mkinitcpio-hook, whose
   # post-transaction deploy hook runs limine-install and reads this file. Without
   # it, ESP_PATH falls back to bootctl, which in a chroot prints a warning that
