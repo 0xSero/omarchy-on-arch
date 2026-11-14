@@ -2490,6 +2490,9 @@ if (( boot_cmdline_unsafe )); then
 elif (( auto_reboot )); then
   log "Rebooting because --reboot was passed"
   as_root systemctl reboot
+elif [[ -n ${OMARCHY_UPGRADE_DEFER_REBOOT:-} ]]; then
+  # omarchy-on-arch: the installer shows its own "Reboot Now" screen.
+  log "Upgrade complete; reboot deferred to the installer"
 elif gum confirm "Reboot to complete Quattro upgrade now?" </dev/tty; then
   as_root systemctl reboot
 else

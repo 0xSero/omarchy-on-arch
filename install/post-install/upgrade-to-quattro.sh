@@ -26,4 +26,4 @@ sudo visudo -cq -f "$installer_sudoers"
 
 # Run as root: as a user the upgrader calls `sudo -v` itself, whose password
 # prompt would be hidden inside the install log.
-sudo "$OMARCHY_PATH/bin/omarchy-upgrade-to-quattro" --yes --channel stable --user "$USER"
+sudo env OMARCHY_UPGRADE_DEFER_REBOOT=1 "$OMARCHY_PATH/bin/omarchy-upgrade-to-quattro" --yes --channel stable --user "$USER"
