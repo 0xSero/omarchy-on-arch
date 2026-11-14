@@ -1,12 +1,21 @@
 stop_install_log
 
 echo_in_style() {
-  echo "$1" | tte --canvas-width 0 --anchor-text c --frame-rate 640 print
+  if command -v tte &>/dev/null; then
+    echo "$1" | tte --canvas-width 0 --anchor-text c --frame-rate 640 print
+  else
+    gum style --foreground 2 --padding "0 0 0 $PADDING_LEFT" "$1"
+  fi
 }
 
 clear
 echo
-tte -i ~/.local/share/omarchy/logo.txt --canvas-width 0 --anchor-text c --frame-rate 920 laseretch
+# omarchy-on-arch: tte is gone after the quattro upgrade; fall back to plain output
+if command -v tte &>/dev/null && [[ -f ~/.local/share/omarchy/logo.txt ]]; then
+  tte -i ~/.local/share/omarchy/logo.txt --canvas-width 0 --anchor-text c --frame-rate 920 laseretch
+elif [[ -f /usr/share/omarchy/logo.txt ]]; then
+  gum style --foreground 2 --padding "0 0 0 $PADDING_LEFT" "$(</usr/share/omarchy/logo.txt)"
+fi
 echo
 
 # Display installation time if available
