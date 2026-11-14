@@ -1266,13 +1266,60 @@ ensure_sleep_lock_service() {
   fi
 }
 
+# omarchy-on-arch: the speaker-tuning migrations (e.g. XPS 2026 14/16) need a
+# running PipeWire sink, which a TTY install has none of, so `omarchy-audio-tuning
+# on` fails and stops the whole upgrade. Shadow it during migrations: try it,
+# and if it fails, install a one-shot user unit that applies the tuning at the
+# first login instead (the ISO does the same from first-run, which an upgrade
+# marks complete).
+make_audio_tuning_shim() {
+  local shim_dir
+  shim_dir=$(mktemp -d /tmp/omarchy-migrate-shim.XXXXXX) || return 1
+  chmod 755 "$shim_dir"
+  cat >"$shim_dir/omarchy-audio-tuning" <<'SHIM'
+#!/bin/bash
+real=$(PATH=${PATH#*:} command -v omarchy-audio-tuning) || exit 1
+[[ ${1:-} == on ]] || exec "$real" "$@"
+"$real" "$@" && exit 0
+
+unit=omarchy-on-arch-audio-tuning.service
+unit_dir="$HOME/.config/systemd/user"
+mkdir -p "$unit_dir/default.target.wants"
+cat >"$unit_dir/$unit" <<UNIT
+[Unit]
+Description=Apply the Omarchy speaker tuning once audio is up (omarchy-on-arch)
+Wants=pipewire-pulse.service wireplumber.service
+After=pipewire-pulse.service wireplumber.service
+
+[Service]
+Type=oneshot
+Environment=OMARCHY_PATH=/usr/share/omarchy
+ExecStartPre=/bin/sleep 10
+ExecStart=$real on
+ExecStartPost=/bin/rm -f %h/.config/systemd/user/default.target.wants/$unit
+
+[Install]
+WantedBy=default.target
+UNIT
+ln -sf "../$unit" "$unit_dir/default.target.wants/$unit"
+echo "No audio server during install; the speaker tuning will be applied at first login."
+echo "(Or run 'omarchy audio tuning on' yourself after logging in.)"
+exit 0
+SHIM
+  chmod 755 "$shim_dir/omarchy-audio-tuning"
+  printf '%s\n' "$shim_dir"
+}
+
 run_post_upgrade_migrations() {
-  local pending_status
+  local pending_status shim_dir
 
   log "Running Omarchy migrations"
-  if ! run_as_user_omarchy OMARCHY_UPGRADE_TO_QUATTRO_LIVE=1 omarchy-migrate; then
+  shim_dir=$(make_audio_tuning_shim) || shim_dir=""
+  if ! run_as_user_omarchy OMARCHY_UPGRADE_TO_QUATTRO_LIVE=1 PATH="${shim_dir:+$shim_dir:}$package_path" omarchy-migrate; then
+    [[ -n $shim_dir ]] && rm -rf "$shim_dir"
     fail "Omarchy migrations did not complete. Fix the error above and rerun the upgrade before rebooting."
   fi
+  [[ -n $shim_dir ]] && rm -rf "$shim_dir"
   if run_as_user_omarchy omarchy-migrate --pending >/dev/null; then
     fail "Omarchy migrations are still pending. Rerun the upgrade before rebooting."
   else
