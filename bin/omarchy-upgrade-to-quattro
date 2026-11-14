@@ -217,12 +217,21 @@ run_as_user_session() {
 # Run an Omarchy command as the user with the package-backed paths, without
 # assuming a live session. Extra NAME=VALUE args extend the environment.
 run_as_user_omarchy() {
+  # omarchy-on-arch: when the user has a systemd user manager (e.g. logged in
+  # on a TTY while installing), point at it. sudo strips XDG_RUNTIME_DIR, and
+  # migrations that talk to `systemctl --user` fail without it.
+  local session_env=()
+  if [[ -S $target_runtime_dir/systemd/private ]]; then
+    session_env=(XDG_RUNTIME_DIR="$target_runtime_dir" DBUS_SESSION_BUS_ADDRESS="unix:path=$target_runtime_dir/bus")
+  fi
+
   run_as_user env \
     HOME="$target_home" \
     USER="$target_user" \
     LOGNAME="$target_user" \
     OMARCHY_PATH=/usr/share/omarchy \
     PATH="$package_path" \
+    "${session_env[@]}" \
     "$@"
 }
 
