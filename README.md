@@ -36,11 +36,23 @@ prompts can read your keyboard. When it's done, choose **Reboot Now**.
 | Problem | Fix |
 |---|---|
 | Omarchy pins pacman to a dated snapshot mirror. A freshly installed Arch has *newer* package databases, so `pacman -Syu` says "up to date" and then 404s (for example `git-2.56.1 failed to download`). | `boot.sh` runs `pacman -Syyuu`, which refreshes the databases and allows the downgrade to the snapshot. |
-| `error: target not found: omarchy-walker`. The package was removed from the Omarchy repo. | `install/omarchy-base.packages` installs `walker` instead. |
-| Elephant (Walker's backend) is no longer published either. | `install/first-run/elephant.sh` skips it when it's missing. |
-| 3.8.5 is end-of-life. | `install/post-install/upgrade-to-quattro.sh` runs `omarchy-upgrade-to-quattro` (updated to the upstream `v4-5-1` copy) before the first reboot, so you boot straight into current Omarchy 4.x. Set `OMARCHY_SKIP_QUATTRO=1` to stay on 3.8.5. Not recommended: the app launcher won't work without Elephant. |
+| `error: target not found: omarchy-walker`. The package was removed from the Omarchy repo. | `install/omarchy-base.packages` installs `walker` instead. Elephant, Walker's backend, is gone too, so `install/first-run/elephant.sh` skips it when it's missing. |
+| `Error: Limine config not found`. Current `archinstall` mounts `/boot` with `dmask=0077`, and the installer read it without `sudo`. | `install/login/limine-snapper.sh` reads `/boot` through `sudo`. |
+| 3.8.5 is end-of-life. | `install/post-install/upgrade-to-quattro.sh` runs upstream's `omarchy-upgrade-to-quattro` (the newer `v4-5-1` copy) before the first reboot, so you boot straight into Omarchy 4.x. |
+| The upgrader's migrations call `sudo -v` and `systemctl --user` from inside the install log, where a password prompt can't be answered, and it asks its own reboot question nobody can see. | The upgrade runs as root with a temporary `/etc/sudoers.d/99-omarchy-installer`, the same file upstream's ISO installer uses. The file is removed as soon as the step exits. The upgrader is pointed at your user's systemd manager, and the reboot is left to the installer's own **Reboot Now** screen. |
+| After the upgrade swaps `~/.local/share/omarchy`, the finish screen and `tte` are gone. | The finish screen is copied before the upgrade and falls back to `gum`. |
 
-Everything else is upstream 3.8.5 unchanged (basecamp/omarchy@f4378f0d). See the commit history.
+Everything else is upstream 3.8.5 unchanged (basecamp/omarchy@f4378f0d). The commit history shows each patch.
+
+## Tested
+
+Tested end to end on 2026-11-14 in a UEFI VM: Arch ISO 2026.11.01 → `archinstall` (Btrfs + Limine,
+normal password sudo) → `bash boot.sh` → "Installed in 5m 50s" → **Reboot Now** → Omarchy 4.5.0
+(kernel `7.2.15-1-omarchy`), with SDDM autologin into Hyprland and the Omarchy shell running, and
+no failed system or user services.
+
+Set `OMARCHY_SKIP_QUATTRO=1` to stop at 3.8.5 instead. That isn't recommended, and it's untested:
+the app launcher won't work without Elephant.
 
 ## If it fails
 
